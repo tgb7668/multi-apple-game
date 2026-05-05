@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🍎 흐융사과게임 🍎</title>
+<style>
+    body {
+        font-family: 'Malgun Gothic', sans-serif;
+        text-align: center;
+        margin: 0;
+        padding: 0;
+        background-color: #ffffff;
+
+        /* 🌟 PC 배경 설정: 가로 3분할 꽉 차게 */
+        background-image: url('tile.png'), url('tile.png'), url('tile.png');
+        background-position: 
+            left -5vw center, 
+            center center, 
+            right -5vw center;
+        background-repeat: no-repeat;
+        background-size: 35vw auto, 50vw auto, 35vw auto;
+        background-attachment: fixed;
+        overflow-x: hidden;
+    }
+
+    /* 📱 모바일 화면 (너비 768px 이하) 해결책 */
+    @media (max-width: 768px) {
+        body {
+            /* 1. 중앙 사과를 숨기기 위해 배경 이미지 구성을 2개로 줄임 */
+            background-image: url('tile.png'), url('tile.png');
+            
+            /* 2. 좌우 끝으로 완전히 밀어버림 */
+            background-position: 
+                left -15vw center, 
+                right -15vw center;
+            
+            /* 3. 모바일 화면에 맞는 적절한 크기 */
+            background-size: 45vw auto, 45vw auto;
+        }
+    }
+
+    /* UI 스타일 유지 */
+    h2 { 
+        display: block; 
+        margin: 40px auto 20px auto; 
+        background: rgba(255,255,255,0.85);
+        padding: 15px 40px; 
+        border-radius: 20px;
+        width: fit-content; 
+        position: relative;
+        z-index: 20;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    #game-controls { 
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        margin: 0 auto 20px auto; 
+        background: rgba(255,255,255,0.9);
+        padding: 30px;
+        border-radius: 15px;
+        position: relative;
+        z-index: 20;
+        width: fit-content;
+    }
+
+    input#username { padding: 12px; border: 1px solid #ccc; border-radius: 8px; width: 220px; font-size: 16px; box-sizing: border-box; }
+    #startBtn { padding: 12px; width: 220px; background: #4caf50; color: #fff; border: none; border-radius: 8px; font-weight: bold; font-size: 18px; cursor: pointer; box-sizing: border-box; }
+
+    #board-outer-container {
+        width: 100%;
+        display: flex;
+        justify-content: center; 
+        align-items: flex-start;
+        padding-bottom: 50px;
+    }
+
+    #board {
+        display: grid;
+        grid-template-columns: repeat(15, 52px);
+        grid-template-rows: repeat(10, 52px);
+        border: 4px solid #333; 
+        width: max-content;
+        background: rgba(255, 255, 255, 0.98);
+        user-select: none;
+        position: relative;
+        z-index: 15;
+        transform-origin: top center; 
+        touch-action: none;
+        margin: 20px 0; 
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+
+    .cell { width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; position: relative; }
+    .cell img { position: absolute; width: 90%; height: 90%; object-fit: contain; opacity: 0.7; z-index: 0; pointer-events: none; }
+    .cell span { position: relative; z-index: 1; color: #000; font-size: 24px; font-weight: bold; text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff; }
+    .selected { background-color: rgba(76, 175, 80, 0.4); outline: 3px solid #4caf50; z-index: 5; }
+
+    #info-panel { font-size: 22px; margin-bottom: 10px; font-weight: bold; position: relative; z-index: 20; background: rgba(255,255,255,0.9); display: inline-block; padding: 8px 20px; border-radius: 25px; }
+
+    #end { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); color: #fff; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+    #rankingBox { background: rgba(255, 255, 255, 0.1); padding: 20px; border-radius: 10px; width: 280px; margin-top: 15px; }
+    .rank-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+</style>
+</head>
+<body>
+
+<h2>🍎 흐융사과게임 🍎</h2>
+
+<div id="game-controls">
+    <input id="username" placeholder="닉네임 입력">
+    <button id="startBtn">게임 시작</button>
+</div>
+
+<div id="game" style="display:none">
+    <div id="info-panel">⏰ <span id="timer">120</span> | 🏆 점수: <span id="score">0</span></div>
+    <div id="board-outer-container">
+        <div id="board"></div>
+    </div>
+</div>
+
+<div id="end">
+    <h3 id="endMsg">게임 종료!</h3>
+    <div id="finalScore" style="font-size: 22px; margin-bottom: 10px;"></div>
+    <div id="rankingBox">
+        <h4 style="margin:0 0 10px 0; color: #ffeb3b;">🌍 실시간 온라인 TOP 10</h4>
+        <div id="rankingList">데이터 로딩 중...</div>
+    </div>
+    <button onclick="location.reload()" style="margin-top: 20px; padding: 10px 20px;">다시 시작</button>
+</div>
+
+<audio id="bgm" src="bgm.mp3" loop></audio>
+
+<script>
+const RANKING_URL = "https://script.google.com/macros/s/AKfycbyYXtYHm6DJIKDuyy1DhuN1n4Qmf3mk5X8lE36Za5-05uGT1rAJ8HeKkPGLKsYX_enGlg/exec";
+const TILE_IMAGE = "tile.png"; 
+
+const ROWS = 10, COLS = 15, TARGET = 10;
+let board = [], cells = [], selected = [];
+let score = 0, time = 120, timerInterval, gameOver = false;
+let isDragging = false, startCell = null, endCell = null;
+
+const bgm = document.getElementById("bgm");
+
+document.getElementById("startBtn").onclick = () => {
+    const name = document.getElementById("username").value;
+    if (!name) { alert("닉네임을 입력해 주세요!"); return; }
+    document.getElementById("game-controls").style.display = "none";
+    document.getElementById("game").style.display = "block";
+    init();
+    startTimer();
+    setTimeout(resizeBoard, 50);
+    bgm.play().catch(() => {});
+};
+
+function init() {
+    const b = document.getElementById("board");
+    b.innerHTML = ""; board = []; cells = [];
+    for (let r = 0; r < ROWS; r++) {
+        board[r] = [];
+        for (let c = 0; c < COLS; c++) {
+            const val = Math.floor(Math.random() * 9) + 1;
+            board[r][c] = val;
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.dataset.r = r; cell.dataset.c = c;
+            const img = document.createElement("img");
+            img.src = TILE_IMAGE;
+            cell.appendChild(img);
+            const span = document.createElement("span");
+            span.textContent = val;
+            cell.appendChild(span);
+            b.appendChild(cell);
+            cells.push(cell);
+        }
+    }
+}
+
+function handleStart(e) {
+    if (gameOver) return;
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    const cell = document.elementFromPoint(clientX, clientY)?.closest('.cell');
+    if (!cell) return;
+    isDragging = true;
+    startCell = [+cell.dataset.r, +cell.dataset.c];
+    endCell = startCell;
+    update();
+}
+
+function handleMove(e) {
+    if (!isDragging || gameOver) return;
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+    const el = document.elementFromPoint(clientX, clientY);
+    const cell = el?.closest('.cell');
+    if (!cell) return;
+    const r = +cell.dataset.r, c = +cell.dataset.c;
+    if (endCell[0] === r && endCell[1] === c) return;
+    endCell = [r, c];
+    update();
+}
+
+function handleEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+    const sum = selected.reduce((a, [r, c]) => a + board[r][c], 0);
+    if (sum === TARGET) {
+        selected.forEach(([r, c]) => {
+            board[r][c] = 0;
+            cells[r * COLS + c].querySelector("span").textContent = "";
+            cells[r * COLS + c].querySelector("img").style.opacity = "0.05";
+        });
+        score += selected.length;
+        document.getElementById("score").textContent = score;
+    }
+    cells.forEach(c => c.classList.remove("selected"));
+    selected = [];
+}
+
+document.addEventListener("mousedown", handleStart);
+document.addEventListener("mousemove", handleMove);
+window.addEventListener("mouseup", handleEnd);
+
+document.addEventListener("touchstart", (e) => {
+    if (e.target.closest('.cell')) e.preventDefault();
+    handleStart(e);
+}, { passive: false });
+
+document.addEventListener("touchmove", (e) => {
+    if (isDragging) e.preventDefault();
+    handleMove(e);
+}, { passive: false });
+
+window.addEventListener("touchend", handleEnd);
+
+function update() {
+    const [r1, c1] = startCell;
+    const [r2, c2] = endCell;
+    const minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
+    const minC = Math.min(c1, c2), maxC = Math.max(c1, c2);
+    cells.forEach(c => c.classList.remove("selected"));
+    selected = [];
+    for (let r = minR; r <= maxR; r++) {
+        for (let c = minC; c <= maxC; c++) {
+            if (board[r][c] !== 0) {
+                selected.push([r, c]);
+                cells[r * COLS + c].classList.add("selected");
+            }
+        }
+    }
+}
+
+function startTimer() {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        time--;
+        document.getElementById("timer").textContent = time;
+        if (time <= 0) endGame();
+    }, 1000);
+}
+
+async function endGame() {
+    gameOver = true;
+    clearInterval(timerInterval);
+    bgm.pause();
+    const nickname = document.getElementById("username").value;
+    document.getElementById("end").style.display = "flex";
+    document.getElementById("finalScore").textContent = nickname + "님의 점수: " + score;
+    try {
+        const res = await fetch(`${RANKING_URL}?name=${encodeURIComponent(nickname)}&score=${score}`);
+        const data = await res.json();
+        let html = "";
+        data.forEach((item, i) => {
+            html += `<div class="rank-item"><span>${i + 1}위. ${item.name}</span><span style="color:#4caf50;">${item.score}점</span></div>`;
+        });
+        document.getElementById("rankingList").innerHTML = html || "데이터가 없습니다.";
+    } catch (e) {
+        document.getElementById("rankingList").textContent = "랭킹 로드 실패";
+    }
+}
+
+function resizeBoard() {
+    const board = document.getElementById('board');
+    const container = document.getElementById('game');
+    if (!board || container.style.display === 'none') return;
+
+    const winW = window.innerWidth;
+    const boardW = 788; 
+    const boardH = 528; 
+
+    if (winW < boardW) {
+        const scale = (winW * 0.95) / boardW;
+        board.style.transform = `scale(${scale})`;
+        board.style.marginBottom = `-${boardH - (boardH * scale)}px`;
+    } else {
+        board.style.transform = `scale(1)`;
+        board.style.marginBottom = "20px";
+    }
+}
+
+window.addEventListener('resize', resizeBoard);
+window.addEventListener('load', resizeBoard);
+</script>
+</body>
+</html>
