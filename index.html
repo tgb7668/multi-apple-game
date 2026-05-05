@@ -3,18 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🍎 흐융사과게임 - 실시간 로비 대결 🍎</title>
+<title>🍎 흐융사과게임 - 실시간 대결 결과 모드 🍎</title>
 <style>
-    /* 기존 스타일 및 레이아웃 유지 */
+    /* 기존 스타일 유지 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     #bg-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-image: url('background.png'); background-size: cover; z-index: -2; }
     body { font-family: 'Malgun Gothic', sans-serif; text-align: center; background-color: #fff; }
     
-    /* 로비 스타일 */
     #lobby-screen { display: none; position: relative; z-index: 20; background: rgba(255,255,255,0.95); width: 400px; margin: 50px auto; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-    #player-list { list-style: none; margin: 20px 0; padding: 10px; background: #f9f9f9; border-radius: 10px; min-height: 100px; }
-    .player-item { padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; color: #333; }
-    .player-item.host::after { content: " (방장)"; color: #ff5722; font-size: 12px; }
+    #player-list { list-style: none; margin: 20px 0; padding: 10px; background: #f9f9f9; border-radius: 10px; min-height: 50px; }
+    .player-item { padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; }
 
     #start-screen { display: block; position: relative; z-index: 20; }
     #game-controls { display: flex; flex-direction: column; align-items: center; gap: 15px; margin: 50px auto; background: rgba(255,255,255,0.9); padding: 30px; border-radius: 15px; width: fit-content; }
@@ -22,44 +20,42 @@
     .menu-btn { padding: 12px; width: 220px; color: #fff; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.2s; margin: 5px; }
     #createBtn { background: #2196F3; }
     #joinBtn { background: #FF9800; }
-    #startBtn { background: #4CAF50; display: none; } /* 방장만 보임 */
-    .menu-btn:disabled { background: #ccc; cursor: not-allowed; }
+    #startBtn { background: #4CAF50; display: none; }
 
-    /* 게임판 스타일 */
     #board { display: grid; grid-template-columns: repeat(15, 52px); grid-template-rows: repeat(10, 52px); border: 4px solid #333; width: max-content; margin: 0 auto; background: #fff; position: relative; z-index: 15; user-select: none; }
     .cell { width: 52px; height: 52px; display: flex; align-items: center; justify-content: center; position: relative; }
     .cell img { position: absolute; width: 90%; height: 90%; opacity: 0.7; pointer-events: none; }
     .cell span { position: relative; z-index: 1; font-size: 24px; font-weight: bold; }
     .selected { background-color: rgba(76, 175, 80, 0.5); outline: 3px solid #4caf50; }
-    #end { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); color: #fff; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+
+    /* 결과창 스타일 수정 */
+    #end { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); color: #fff; flex-direction: column; align-items: center; justify-content: center; z-index: 100; padding: 20px; }
+    #result-table { width: 100%; max-width: 400px; margin-top: 20px; border-collapse: collapse; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; }
+    #result-table th, #result-table td { padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.2); }
+    #result-table th { background: rgba(255,255,255,0.2); }
+    .my-row { background: rgba(76, 175, 80, 0.3); color: #4caf50; font-weight: bold; }
 </style>
 </head>
 <body>
 
 <div id="bg-container"></div>
 
-<!-- 1. 초기 시작 화면 -->
 <div id="start-screen">
     <h2>🍎 흐융사과게임 대결 🍎</h2>
     <div id="game-controls">
-        <input id="username" type="text" placeholder="닉네임 입력" style="padding:10px; width:220px; border-radius:5px; border:1px solid #ccc;">
+        <input id="username" type="text" placeholder="닉네임 입력" style="padding:10px; width:220px;">
         <button id="createBtn" class="menu-btn" onclick="createRoom()">새 방 만들기</button>
         <button id="joinBtn" class="menu-btn" onclick="joinRoom()">방 참가하기</button>
     </div>
 </div>
 
-<!-- 2. 대기 로비 화면 -->
 <div id="lobby-screen">
-    <h2 id="lobby-title">대기실</h2>
-    <p style="color: #666;">방 번호: <span id="room-id-display" style="font-weight:bold; color:#2196F3;">-</span></p>
-    <div id="player-list">
-        <!-- 참가자 명단이 여기에 추가됨 -->
-    </div>
-    <p id="wait-msg" style="font-size:14px; color:#888;">방장이 게임을 시작할 때까지 기다려주세요...</p>
+    <h2>대기실</h2>
+    <p>방 번호: <span id="room-id-display" style="font-weight:bold; color:#2196F3;">-</span></p>
+    <div id="player-list"></div>
     <button id="startBtn" class="menu-btn" onclick="triggerStart()">게임 시작하기!</button>
 </div>
 
-<!-- 3. 게임 화면 -->
 <div id="game" style="display:none">
     <div style="margin: 20px; font-size: 20px; font-weight: bold;">
         ⏰ <span id="timer">120</span> | 🏆 점수: <span id="score">0</span>
@@ -68,14 +64,27 @@
 </div>
 
 <div id="end">
-    <h3 id="endMsg">게임 종료!</h3>
-    <div id="finalScore" style="font-size: 24px;"></div>
-    <button onclick="location.reload()" style="margin-top:20px; padding:10px 20px;">메뉴로 돌아가기</button>
+    <h1 style="color: #FFC107; margin-bottom: 10px;">GAME OVER</h1>
+    <h3 id="endMsg">성적 집계 중...</h3>
+    
+    <table id="result-table">
+        <thead>
+            <tr>
+                <th>순위</th>
+                <th>닉네임</th>
+                <th>점수</th>
+            </tr>
+        </thead>
+        <tbody id="result-body">
+            <!-- 결과 데이터가 여기에 들어감 -->
+        </tbody>
+    </table>
+
+    <button onclick="location.reload()" style="margin-top:30px; padding:12px 30px; cursor:pointer; border-radius:5px; border:none; background:#fff; font-weight:bold;">메뉴로 돌아가기</button>
 </div>
 
 <audio id="bgm" src="bgm.mp3" loop></audio>
 
-<!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
   import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, arrayUnion, collection, addDoc, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -101,8 +110,8 @@ let isHost = false;
 let currentSeed = null;
 let myName = "";
 let unsub = null;
+let resultsUnsub = null;
 
-// 시드 난수 함수
 function seedRandom(seed) {
     return function() {
         let t = seed += 0x6D2B79F5;
@@ -112,82 +121,58 @@ function seedRandom(seed) {
     }
 }
 
-// 1. 방 생성
 async function createRoom() {
     myName = document.getElementById("username").value;
     if (!myName) { alert("닉네임을 입력하세요!"); return; }
-    
     const roomId = Math.floor(1000 + Math.random() * 9000).toString();
     const seed = Math.random() * 1000000;
     isHost = true;
-    
     const { doc, setDoc } = window.dbFuncs;
     await setDoc(doc(window.db, "rooms", roomId), {
-        seed: seed,
-        players: [myName],
-        status: "waiting", // waiting -> playing
-        host: myName
+        seed: seed, players: [myName], status: "waiting", host: myName, results: []
     });
-
     enterLobby(roomId);
 }
 
-// 2. 방 참가
 async function joinRoom() {
     myName = document.getElementById("username").value;
     const roomId = prompt("방 번호 4자리를 입력하세요:");
     if (!myName || !roomId) return;
-
     const { doc, getDoc, updateDoc, arrayUnion } = window.dbFuncs;
     const roomRef = doc(window.db, "rooms", roomId);
     const snap = await getDoc(roomRef);
-
     if (snap.exists() && snap.data().status === "waiting") {
-        await updateDoc(roomRef, {
-            players: arrayUnion(myName)
-        });
+        await updateDoc(roomRef, { players: arrayUnion(myName) });
         enterLobby(roomId);
-    } else {
-        alert("방이 없거나 이미 게임이 시작되었습니다.");
-    }
+    } else { alert("입장할 수 없습니다."); }
 }
 
-// 3. 로비 진입 및 실시간 감시
 function enterLobby(roomId) {
     currentRoomId = roomId;
     document.getElementById("start-screen").style.display = "none";
     document.getElementById("lobby-screen").style.display = "block";
     document.getElementById("room-id-display").textContent = roomId;
-
     if (isHost) document.getElementById("startBtn").style.display = "block";
 
     const { doc, onSnapshot } = window.dbFuncs;
     unsub = onSnapshot(doc(window.db, "rooms", roomId), (doc) => {
         const data = doc.data();
         if (!data) return;
-
-        // 플레이어 목록 업데이트
         const listEl = document.getElementById("player-list");
-        listEl.innerHTML = data.players.map(p => `<div class="player-item ${p === data.host ? 'host' : ''}">${p}</div>`).join("");
-
-        // 게임 시작 감지
+        listEl.innerHTML = data.players.map(p => `<div class="player-item">${p}${p === data.host ? ' (방장)' : ''}</div>`).join("");
         if (data.status === "playing") {
             currentSeed = data.seed;
-            unsub(); // 감시 종료
+            unsub();
             realStartGame();
         }
     });
 }
 
-// 4. 방장이 시작 버튼 누름
 async function triggerStart() {
     const { doc, updateDoc } = window.dbFuncs;
-    await updateDoc(doc(window.db, "rooms", currentRoomId), {
-        status: "playing"
-    });
+    await updateDoc(doc(window.db, "rooms", currentRoomId), { status: "playing" });
 }
 
-// 5. 실제 게임 화면 전환
 function realStartGame() {
     document.getElementById("lobby-screen").style.display = "none";
     document.getElementById("game").style.display = "block";
@@ -196,7 +181,6 @@ function realStartGame() {
     startTimer();
 }
 
-/* --- 기존 게임 로직 (initBoard, 드래그 등) --- */
 let board = [], cells = [], selected = [];
 let score = 0, time = 120, timerInterval, gameOver = false;
 let isDragging = false, startCell = null, endCell = null;
@@ -205,7 +189,6 @@ function initBoard() {
     const b = document.getElementById("board");
     b.innerHTML = ""; board = []; cells = [];
     const rnd = seedRandom(currentSeed);
-
     for (let r = 0; r < 10; r++) {
         board[r] = [];
         for (let c = 0; c < 15; c++) {
@@ -224,17 +207,15 @@ function initBoard() {
     }
 }
 
-// 드래그 로직 (생략된 부분은 기존 코드와 동일하게 유지하세요)
+// 드래그 로직 (생략 방지용 핵심 코드)
 function handleStart(e) {
-    if (gameOver) return;
+    if (gameOver || document.getElementById("game").style.display === "none") return;
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
     const clientY = e.clientY || (e.touches && e.touches[0].clientY);
     const cell = document.elementFromPoint(clientX, clientY)?.closest('.cell');
     if (!cell) return;
-    isDragging = true;
-    startCell = [+cell.dataset.r, +cell.dataset.c];
-    endCell = startCell;
-    updateSelected();
+    isDragging = true; startCell = [+cell.dataset.r, +cell.dataset.c];
+    endCell = startCell; updateSelected();
 }
 function handleMove(e) {
     if (!isDragging || gameOver) return;
@@ -242,8 +223,7 @@ function handleMove(e) {
     const clientY = e.clientY || (e.touches && e.touches[0].clientY);
     const cell = document.elementFromPoint(clientX, clientY)?.closest('.cell');
     if (!cell) return;
-    endCell = [+cell.dataset.r, +cell.dataset.c];
-    updateSelected();
+    endCell = [+cell.dataset.r, +cell.dataset.c]; updateSelected();
 }
 function handleEnd() {
     if (!isDragging) return;
@@ -292,18 +272,41 @@ function startTimer() {
     }, 1000);
 }
 
+// 🏁 게임 종료 및 전원 결과 표시 로직
 async function endGame() {
     gameOver = true;
     clearInterval(timerInterval);
+    document.getElementById("game").style.display = "none";
     document.getElementById("end").style.display = "flex";
-    document.getElementById("finalScore").textContent = `${myName}님의 점수: ${score}`;
     
-    // 랭킹 저장 (선택 사항)
-    try {
-        await window.dbFuncs.addDoc(window.dbFuncs.collection(window.db, "rankings"), {
-            name: myName, score: score, timestamp: new Date()
-        });
-    } catch(e) {}
+    const { doc, updateDoc, arrayUnion, onSnapshot } = window.dbFuncs;
+    const roomRef = doc(window.db, "rooms", currentRoomId);
+
+    // 1. 내 점수 방 데이터에 전송
+    await updateDoc(roomRef, {
+        results: arrayUnion({ name: myName, score: score })
+    });
+
+    // 2. 방 결과 실시간 감시 (모든 사람이 점수 낼 때까지)
+    resultsUnsub = onSnapshot(roomRef, (doc) => {
+        const data = doc.data();
+        if (!data || !data.results) return;
+
+        // 점수 높은 순으로 정렬
+        const sorted = [...data.results].sort((a, b) => b.score - a.score);
+        
+        // 테이블 업데이트
+        const tbody = document.getElementById("result-body");
+        tbody.innerHTML = sorted.map((res, idx) => `
+            <tr class="${res.name === myName ? 'my-row' : ''}">
+                <td>${idx + 1}위</td>
+                <td>${res.name}</td>
+                <td>${res.score}점</td>
+            </tr>
+        `).join("");
+
+        document.getElementById("endMsg").textContent = "최종 결과 확인";
+    });
 }
 </script>
 </body>
