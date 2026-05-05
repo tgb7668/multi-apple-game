@@ -11,36 +11,22 @@
         margin: 0;
         padding: 0;
         background-color: #ffffff;
-
-        /* 🌟 PC 배경 설정: 가로 3분할 꽉 차게 */
         background-image: url('tile.png'), url('tile.png'), url('tile.png');
-        background-position: 
-            left -5vw center, 
-            center center, 
-            right -5vw center;
+        background-position: left -5vw center, center center, right -5vw center;
         background-repeat: no-repeat;
         background-size: 35vw auto, 50vw auto, 35vw auto;
         background-attachment: fixed;
         overflow-x: hidden;
     }
 
-    /* 📱 모바일 화면 (너비 768px 이하) 해결책 */
     @media (max-width: 768px) {
         body {
-            /* 1. 중앙 사과를 숨기기 위해 배경 이미지 구성을 2개로 줄임 */
             background-image: url('tile.png'), url('tile.png');
-            
-            /* 2. 좌우 끝으로 완전히 밀어버림 */
-            background-position: 
-                left -15vw center, 
-                right -15vw center;
-            
-            /* 3. 모바일 화면에 맞는 적절한 크기 */
+            background-position: left -15vw center, right -15vw center;
             background-size: 45vw auto, 45vw auto;
         }
     }
 
-    /* UI 스타일 유지 */
     h2 { 
         display: block; 
         margin: 40px auto 20px auto; 
@@ -106,7 +92,31 @@
     .rank-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
 </style>
 </head>
+
 <body>
+
+<!-- Firebase SDK 로드 및 초기화 -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  // 🔴 중요: 여기에 본인의 Firebase 프로젝트 설정값을 넣으세요!
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  // 전역 변수로 넘겨서 일반 <script> 태그에서 쓸 수 있게 함
+  window.db = db;
+  window.dbFunctions = { collection, addDoc, query, orderBy, limit, getDocs };
+</script>
 
 <h2>🍎 흐융사과게임 🍎</h2>
 
@@ -135,9 +145,7 @@
 <audio id="bgm" src="bgm.mp3" loop></audio>
 
 <script>
-const RANKING_URL = "https://script.google.com/macros/s/AKfycbyYXtYHm6DJIKDuyy1DhuN1n4Qmf3mk5X8lE36Za5-05uGT1rAJ8HeKkPGLKsYX_enGlg/exec";
 const TILE_IMAGE = "tile.png"; 
-
 const ROWS = 10, COLS = 15, TARGET = 10;
 let board = [], cells = [], selected = [];
 let score = 0, time = 120, timerInterval, gameOver = false;
@@ -179,6 +187,7 @@ function init() {
     }
 }
 
+// 드래그 및 게임 로직은 기존과 동일
 function handleStart(e) {
     if (gameOver) return;
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
@@ -224,17 +233,8 @@ function handleEnd() {
 document.addEventListener("mousedown", handleStart);
 document.addEventListener("mousemove", handleMove);
 window.addEventListener("mouseup", handleEnd);
-
-document.addEventListener("touchstart", (e) => {
-    if (e.target.closest('.cell')) e.preventDefault();
-    handleStart(e);
-}, { passive: false });
-
-document.addEventListener("touchmove", (e) => {
-    if (isDragging) e.preventDefault();
-    handleMove(e);
-}, { passive: false });
-
+document.addEventListener("touchstart", (e) => { if (e.target.closest('.cell')) e.preventDefault(); handleStart(e); }, { passive: false });
+document.addEventListener("touchmove", (e) => { if (isDragging) e.preventDefault(); handleMove(e); }, { passive: false });
 window.addEventListener("touchend", handleEnd);
 
 function update() {
@@ -263,22 +263,56 @@ function startTimer() {
     }, 1000);
 }
 
+// 🏆 1. 게임 종료 시 Firebase에 점수 저장
 async function endGame() {
     gameOver = true;
     clearInterval(timerInterval);
     bgm.pause();
+    
     const nickname = document.getElementById("username").value;
     document.getElementById("end").style.display = "flex";
     document.getElementById("finalScore").textContent = nickname + "님의 점수: " + score;
+
     try {
-        const res = await fetch(`${RANKING_URL}?name=${encodeURIComponent(nickname)}&score=${score}`);
-        const data = await res.json();
-        let html = "";
-        data.forEach((item, i) => {
-            html += `<div class="rank-item"><span>${i + 1}위. ${item.name}</span><span style="color:#4caf50;">${item.score}점</span></div>`;
+        const { collection, addDoc } = window.dbFunctions;
+        // Firebase Firestore에 저장
+        await addDoc(collection(window.db, "rankings"), {
+            name: nickname,
+            score: score,
+            timestamp: new Date()
         });
+        
+        // 저장 성공 후 랭킹 불러오기
+        fetchFirebaseRanking();
+    } catch (e) {
+        console.error("Firebase 저장 에러:", e);
+        document.getElementById("rankingList").textContent = "점수 저장 실패";
+    }
+}
+
+// 🌍 2. Firebase에서 TOP 10 랭킹 불러오기
+async function fetchFirebaseRanking() {
+    try {
+        const { collection, query, orderBy, limit, getDocs } = window.dbFunctions;
+        const q = query(
+            collection(window.db, "rankings"), 
+            orderBy("score", "desc"), 
+            limit(10)
+        );
+        
+        const querySnapshot = await getDocs(q);
+        let html = "";
+        let i = 1;
+        
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            html += `<div class="rank-item"><span>${i}위. ${data.name}</span><span style="color:#4caf50;">${data.score}점</span></div>`;
+            i++;
+        });
+        
         document.getElementById("rankingList").innerHTML = html || "데이터가 없습니다.";
     } catch (e) {
+        console.error("Firebase 로드 에러:", e);
         document.getElementById("rankingList").textContent = "랭킹 로드 실패";
     }
 }
@@ -287,11 +321,9 @@ function resizeBoard() {
     const board = document.getElementById('board');
     const container = document.getElementById('game');
     if (!board || container.style.display === 'none') return;
-
     const winW = window.innerWidth;
     const boardW = 788; 
     const boardH = 528; 
-
     if (winW < boardW) {
         const scale = (winW * 0.95) / boardW;
         board.style.transform = `scale(${scale})`;
@@ -301,9 +333,7 @@ function resizeBoard() {
         board.style.marginBottom = "20px";
     }
 }
-
 window.addEventListener('resize', resizeBoard);
-window.addEventListener('load', resizeBoard);
 </script>
 </body>
 </html>
